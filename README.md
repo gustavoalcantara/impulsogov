@@ -67,4 +67,88 @@ base_inner |>
     	axis.title.x = element_text(size = 16),
     	axis.title.y = element_text(size = 16))
 ```
-Diante disso, qual o comportamento dos acessos para as áreas logadas? Quais páginas podem ter tido mais acesso?
+Diante disso, qual o comportamento dos acessos para as áreas logadas? Quais páginas podem ter tido mais acesso ao longo do tempo? Será que elas são acessadas da mesma forma? E o tempo médio de duração nas páginas? Tentando responder isso, elaborei o gráfico a seguir com a média do tempo de acesso por data para cada página_url. Sendo assim é possível observar que a página `/lista_nominal_gestantes` é a que tinha mais acesso inicialmente e ao passar do tempo a `lista_nominal_hipertensos` teve maior participação. A `trilha_capacitacao` foi a que teve pico de participação em meados da metade do mês de março. Isso pode coincidir com o gráfico anteriormente apresentado no contexto dos acessos à plataforma. 
+![grafico_2](https://github.com/gustavoalcantara/impulsogov/assets/26544494/e4de6f6f-ae04-474c-9a14-af991a2cc85e)
+Código:
+```r
+base_inner|>
+  dplyr::group_by(pagina_url,
+              	data_acesso)|>
+  dplyr::summarise(tempo_medio =
+               	mean(sessao_duracao))|>
+  ggplot(aes(x = data_acesso, y = tempo_medio, color = pagina_url)) +
+  geom_line(size = 1.5) +
+  labs(x = "Data de acesso", y = "Tempo de Acesso",
+   	title = "Tempo por página ao longo do tempo") +
+  theme(legend.text = element_text(size = 12),  
+    	legend.title = element_text(size = 14),
+    	axis.title.x = element_text(size = 14),
+    	axis.title.y = element_text(size = 14),
+    	plot.title = element_text(size = 16))
+```
+É perceptível, portanto, que algumas páginas são mais acessadas que outras. Diante disso, vale refleti se os usuários antigos ou novos podem ter diferenças nos acessos. Para isso, vamos para o tópico 2.2 que foi definido como A dualidade dos Acessos.
+
+#### 2.2 A Dualidade dos Acessos
+Para melhor categorizar os usuários como `antigo` ou `novo`, optei por realizar uma análise exploratória da quantidade de usuários criados ao longo do tempo. É possível observar que a partir da segunda quinzena de março, novos usuários são cadastrados na plataforma e o platô pretérito à este periodo começa um movimento de ascensão. Portanto, categorizei que usuários criados anteriormente à 3/3 são `antigo ` e posterior à isso `novo`. A linha tracejada apresenta essa categorização a partir da data. 
+![grafico_3](https://github.com/gustavoalcantara/impulsogov/assets/26544494/020dd73e-49f1-4b7d-aadd-f608c5485758)
+
+Assim, foi possível verificar quais usuários podem interagir mais com a plataforma através da variável `eventos`. Para isso, categorizei os usuários e somei as interações. Chama a atenção que usuários `novos` interagem mais com a `trilha de capacitação` do que usuários `antigos`.
+![grafico_4](https://github.com/gustavoalcantara/impulsogov/assets/26544494/a4c654b9-a9f1-464e-a18d-bc405cf1e31c)
+Código:
+```r
+base_inner |>
+  dplyr::mutate(tipo_usuario =
+                  ifelse(criacao_data < "2023-03-15", 
+                         "antigo", "novo"))|>
+  dplyr::group_by(tipo_usuario, pagina_url)|>
+  dplyr::summarise(interacoes = 
+                     sum(eventos))|>
+  ggplot(aes(x = tipo_usuario, y = interacoes, fill = pagina_url)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  theme_minimal() +
+  labs(x = "Tipo de Usuário", y = "Interações", fill = "URL da Página") +
+  ggtitle("Interações por Página em Usuários Antigos e Novos")+
+  theme(legend.text = element_text(size = 12),  
+        legend.title = element_text(size = 14), 
+        axis.title.x = element_text(size = 14), 
+        axis.title.y = element_text(size = 14), 
+        plot.title = element_text(size = 16))
+```
+Feito isso, é possível verificar se o cargo das pessoas pode influenciar neste contexto. Para isso, fiz o agrupamento a partir da variavel `cargo` e  `tipo_usuario` e verifiquei o tempo médio de cada um destes paga cada `pagina_url`. Acontece que na categorização que fiz, existem os cargos de `Coordenação de Equipe` e `Coordenação APS` classificados como antigos. Os demais são todos usuários novos. Porém, cabe alguns insights.  Vejamos os resultados:
+![grafico_5](https://github.com/gustavoalcantara/impulsogov/assets/26544494/a0ed94fc-c587-4c35-9714-fbf7aa39f451)
+Código
+```r
+base_inner|>
+  dplyr::mutate(cargo = stringr::str_trim(cargo))|>
+  dplyr::mutate(cargo = ifelse(cargo %in% c("Técnica (o) de Enfermagem",
+                                        	"Técnico(a) de Enfermagem"),
+                           	"Técnico(a) de Enfermagem", cargo))|>
+  dplyr::group_by(cargo, tipo_usuario, pagina_url)|>
+  dplyr::summarise(tempo_sessao=
+                 	mean(sessao_duracao))|>
+  ggplot(aes(x = pagina_url, y = tempo_sessao, fill = tipo_usuario)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~ cargo, scales = "free_y", ncol = 2) +
+  labs(x = "Página URL", y = "Tempo Médio de Sessão", fill = "Tipo de Usuário") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("Tempo Médio de Sessão por Página, Cargo e Tipo de Usuário")
+```
+É interessante verificar que enfermeiros, médicos e técnicos de enfermagem acessam mais a página de `início` e a `trilha de capacitação`. Os cargos de coordenação foram os que acessam as demais páginas e existem diferenças no tempo médio da sessão para os usuários antigos no cargo de `Coordenação de Equipe` praticamente para todas as páginas. 
+
+## Considerações
+Este case é fruto de um esforço de analisar as interações das pessoas em uma plataforma. É válido ressaltar que todas as análises aqui são exploratórias e podem indicar padrões de acesso e interação. Entretanto, para uma análise mais acurada é interessante analisar sob a ótica de séries temporais e modelos preditivos. É válido também levar em consideração a localidade das pessoas que acessam esta plataforma. Será que existe um padrão espacial de acesso? Será que existem UFS com maior dependência de outros fatores externos à plataforma? É válido ressaltar que os dados foram resultados de um join realizado no começo das análises. Para os demais usuários que não entraram nessa base, é interessante realizar uma análise especificamente deles. 
+Deixo aqui minhas contribuições e futuros contatos caso haja interesse. 
+Muito obrigado!
+
+
+
+
+
+
+
+
+
+
+
+
